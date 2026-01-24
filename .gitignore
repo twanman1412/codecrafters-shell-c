@@ -53,3 +53,13 @@ dkms.conf
 
 build
 vcpkg_installed
+
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Program binary
+shell
