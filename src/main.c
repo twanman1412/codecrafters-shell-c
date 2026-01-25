@@ -15,6 +15,9 @@ int main(int argc, char *argv[]) {
 
 	  if (strcmp(input, "exit") == 0) {
 		  break;
+	  } else if (strcspn(input, "echo ") == 0) {
+		  printf("%s\n", input + 5);
+		  continue;
 	  }
 	  printf("%s: command not found\n", input);
   }
