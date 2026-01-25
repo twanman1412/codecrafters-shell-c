@@ -58,9 +58,19 @@ struct Command type_cmd = {
 	.func = &type
 };
 
+void _pwd(struct State *state, char **args) {
+	printf("%s\n", state->cwd);
+}
+
+struct Command pwd_cmd = {
+	.name = "pwd",
+	.func = &_pwd
+};
+
 const struct Command* commands[] = {
 	&exit_cmd,
 	&echo_cmd,
 	&type_cmd,
+	&pwd_cmd,
 	NULL
 };
