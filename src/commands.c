@@ -81,6 +81,22 @@ void _cd(struct State *state, char **args) {
 		return; 
 	}
 
+	if (strncmp(path, "~", 1) == 0) {
+		const char* home = getenv("HOME");
+
+		char new_path[1024];
+		snprintf(new_path, sizeof(new_path), "%s/%s", home, path + 1);
+
+		if (chdir(new_path) == 0) {
+			char* new_cwd = getcwd(NULL, 0);
+			state->cwd = new_cwd;
+			return;
+		}
+
+		printf("cd: %s: No such file or directory\n", path);
+		return;
+	}
+
 	char new_path[1024];
 	snprintf(new_path, sizeof(new_path), "%s/%s", state->cwd, path);
 
