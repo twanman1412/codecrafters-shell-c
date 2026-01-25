@@ -79,7 +79,13 @@ int main(int argc, char *argv[]) {
 }
 
 void echo(char **args) {
-	printf("%s\n", args[0]);
+	for (int i = 1; args[i] != NULL; i++) {
+		printf("%s", args[i]);
+		if (args[i + 1] != NULL) {
+			printf(" ");
+		}
+	}
+	printf("\n");
 }
 
 void type(char **args) {
