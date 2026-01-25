@@ -7,28 +7,55 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include "main.h"
+#include "commands.h"
+
 #ifdef _WIN32
 #define os_pathsep ";"
 #else
 #define os_pathsep ":"
 #endif
 
-void echo(char **args);
-void type(char **args);
-
-char* path;
-char** paths;
-char** get_paths();
-
-char* get_command(const char* input);
-char** get_arguments(const char* input);
-char* get_executable(const char* name);
+extern const struct Command* commands[];
 
 int main(int argc, char *argv[]) {
 	// Flush after every printf
 	setbuf(stdout, NULL);
-	path= getenv("PATH");
 
+	// ======= Get PATH entries =======
+
+	int count = 0;
+	char* path = getenv("PATH");
+	char* path_copy = strdup(path); // strtok modifies the string
+	char* token = strtok(path_copy, os_pathsep);
+	while (token != NULL) {
+		count++;
+		token = strtok(NULL, os_pathsep);
+	}
+	free(path_copy);
+
+	// Allocate array of pointers + NULL terminator
+	char** paths = malloc((count + 1) * sizeof(char*));
+	path_copy = strdup(path);
+	token = strtok(path_copy, os_pathsep);
+	int index = 0;
+	while (token != NULL) {
+		paths[index++] = strdup(token);
+		token = strtok(NULL, os_pathsep);
+	}
+	paths[index] = NULL;
+	free(path_copy);
+
+	// ======= State setup =======
+
+	struct State state = {
+		.cwd = getcwd(NULL, 0),
+		.paths = paths
+	};
+
+	// ======= Main loop =======
+
+main:
 	while (1) {
 		printf("$ ");
 
@@ -36,20 +63,23 @@ int main(int argc, char *argv[]) {
 		fgets(input, sizeof(input), stdin);
 
 		input[strcspn(input, "\n")] = 0;
-		const char* cmd = get_command(input);
+		char*  cmd  = get_command(input);
 		char** args = get_arguments(input);
 
-		if (strcmp(cmd, "exit") == 0) {
-			break;
-		} else if (strcmp(cmd, "echo") == 0) {
-			echo(args);
-			continue;
-		} else if (strcmp(cmd, "type") == 0) {
-			type(args);
-			continue;
-		} 
 
-		char* exe = get_executable(cmd);
+		for (int i = 0; commands[i] != NULL; i++) {
+			if (strcmp(cmd, commands[i]->name) == 0) {
+				commands[i]->func(&state, args);
+				free(cmd);
+				for (int j = 0; args[j] != NULL; j++) {
+					free(args[j]);
+				}
+				free(args);
+				goto main;
+			}
+		}
+
+		char* exe = get_executable(state, cmd);
 		if (exe != NULL) {
 			pid_t pid = fork();
 			if (pid == 0) {
@@ -76,38 +106,6 @@ int main(int argc, char *argv[]) {
 
 	free(paths);
 	return 0;
-}
-
-void echo(char **args) {
-	for (int i = 1; args[i] != NULL; i++) {
-		printf("%s", args[i]);
-		if (args[i + 1] != NULL) {
-			printf(" ");
-		}
-	}
-	printf("\n");
-}
-
-void type(char **args) {
-	char* name = args[1]; // first argument is the command name
-	if (strcmp(name, "echo") == 0) {
-		printf("echo is a shell builtin\n");
-	} else if (strcmp(name, "exit") == 0) {
-		printf("exit is a shell builtin\n");
-	} else if (strcmp(name, "type") == 0) {
-		printf("type is a shell builtin\n");
-	} else {
-		char* cmd = get_command(name);
-		char* exe = get_executable(cmd);
-		if (exe != NULL) {
-			printf("%s is %s\n", name, exe);
-			free(exe);
-		} else {
-			printf("%s: not found\n", name);
-		}
-
-		free(cmd);
-	}
 }
 
 char* get_command(const char* input) {
@@ -144,10 +142,9 @@ char** get_arguments(const char* input) {
 	return result;
 }
 
-char* get_executable(const char* name) {
-	if (paths == NULL) paths = get_paths();
+char* get_executable(struct State state, const char* name) {
 	int i = 0;
-	char* path = paths[i];
+	char* path = state.paths[i];
 	while (path != NULL) {
 		// Allocate space for full path + slash + name + null terminator
 		char* fullpath = malloc(strlen(path) + strlen(name) + 2);
@@ -159,33 +156,8 @@ char* get_executable(const char* name) {
 		}
 
 		free(fullpath);
-		path = paths[++i];
+		path = state.paths[++i];
 	}
 
 	return NULL;
-}
-
-char** get_paths() {
-	int count = 0;
-	char* path_copy = strdup(path); // strtok modifies the string
-	char* token = strtok(path_copy, os_pathsep);
-	while (token != NULL) {
-		count++;
-		token = strtok(NULL, os_pathsep);
-	}
-	free(path_copy);
-
-	// Allocate array of pointers + NULL terminator
-	char** result = malloc((count + 1) * sizeof(char*));
-	path_copy = strdup(path);
-	token = strtok(path_copy, os_pathsep);
-	int index = 0;
-	while (token != NULL) {
-		result[index++] = strdup(token);
-		token = strtok(NULL, os_pathsep);
-	}
-	result[index] = NULL;
-	free(path_copy);
-
-	return result;
 }
