@@ -70,12 +70,27 @@ struct Command pwd_cmd = {
 void _cd(struct State *state, char **args) {
 	const char* path = args[1];
 
-	if (chdir(path) == 0) {
+	if (strncmp(path, "/", 1) == 0) {
+		if (chdir(path) == 0) {
+			char* new_cwd = getcwd(NULL, 0);
+			state->cwd = new_cwd;
+			return;
+		} 
+
+		printf("cd: %s: No such file or directory\n", path);
+		return; 
+	}
+
+	char new_path[1024];
+	snprintf(new_path, sizeof(new_path), "%s/%s", state->cwd, path);
+
+	if (chdir(new_path) == 0) {
 		char* new_cwd = getcwd(NULL, 0);
 		state->cwd = new_cwd;
-	} else {
-		printf("cd: %s: No such file or directory\n", path);
+		return;
 	}
+
+	printf("cd: %s: No such file or directory\n", path);
 }
 
 struct Command cd_cmd = {
