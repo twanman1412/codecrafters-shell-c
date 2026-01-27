@@ -115,17 +115,25 @@ char** get_arguments(const char* input) {
     char* src = cmd;
     char* dst = cmd;
 
-    bool in_quote = false;
+    bool in_single_quote = false;
+	bool in_double_quote = false;
+
     bool new_arg_started = true;
 
     while (*src) {
-        if (*src == '\'') {
-            in_quote = !in_quote;
+        if (*src == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
             src++; // Skip the quote in the output
             continue;
         }
 
-        if (*src == ' ' && !in_quote) {
+		if (*src == '\"' && !in_single_quote) {
+			in_double_quote = !in_double_quote;
+			src++; // Skip the quote in the output
+			continue;
+		}
+
+        if (*src == ' ' && !in_single_quote && !in_double_quote) {
             if (!new_arg_started) {
                 *dst++ = '\0'; // Terminate the previous argument
                 new_arg_started = true;
@@ -145,7 +153,7 @@ char** get_arguments(const char* input) {
     *dst = '\0';
     
     // Check for hanging quotes
-    if (in_quote) {
+    if (in_single_quote) {
         fprintf(stderr, "Unterminated quote\n");
         free(cmd);
         free(args);
