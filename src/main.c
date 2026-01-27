@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -63,17 +64,13 @@ main:
 		fgets(input, sizeof(input), stdin);
 
 		input[strcspn(input, "\n")] = 0;
-		char*  cmd  = get_command(input);
 		char** args = get_arguments(input);
+		char*  cmd  = args[0];
 
 
 		for (int i = 0; commands[i] != NULL; i++) {
 			if (strcmp(cmd, commands[i]->name) == 0) {
 				commands[i]->func(&state, args);
-				free(cmd);
-				for (int j = 0; args[j] != NULL; j++) {
-					free(args[j]);
-				}
 				free(args);
 				goto main;
 			}
@@ -96,50 +93,66 @@ main:
 				exit(-1);
 			}
 
-			free(exe);
 			free(args);
 			continue;
 		}
 
-		printf("%s: command not found\n", input);
+		printf("%s: command not found\n", cmd);
 	}
 
 	free(paths);
 	return 0;
 }
 
-char* get_command(const char* input) {
-	char* input_copy = strdup(input);
-	char* token = strtok(input_copy, " ");
-	char* command = strdup(token);
-	free(input_copy);
-	return command;
-}
-
 char** get_arguments(const char* input) {
-	char* input_copy = strdup(input);
-	 
-	int count = 0;
-	char* token = strtok(input_copy, " "); // Command name is the first argument
-	while (token != NULL) {
-		count++;
-		token = strtok(NULL, " ");
-	}
+    char* cmd = strdup(input); 
+    if (!cmd) return NULL;
 
-	// Allocate array of pointers + NULL terminator
-	char** result = malloc((count + 1) * sizeof(char*));
-	input_copy = strdup(input);
-	token = strtok(input_copy, " "); // Skip command
-	int index = 0;
-	while (token != NULL) {
-		result[index++] = strdup(token);
-		token = strtok(NULL, " ");
-	}
-	result[index] = NULL;
+    int max_args = strlen(input) / 2 + 1; // Max possible args
+    char** args = calloc(max_args + 1, sizeof(char*));
+    
+    int arg_idx = 0;
+    char* src = cmd;
+    char* dst = cmd;
 
-	free(input_copy);
+    bool in_quote = false;
+    bool new_arg_started = true;
 
-	return result;
+    while (*src) {
+        if (*src == '\'') {
+            in_quote = !in_quote;
+            src++; // Skip the quote in the output
+            continue;
+        }
+
+        if (*src == ' ' && !in_quote) {
+            if (!new_arg_started) {
+                *dst++ = '\0'; // Terminate the previous argument
+                new_arg_started = true;
+            }
+            src++; // Skip the space
+        } else {
+            // If we just finished a gap, this is the start of a new arg
+            if (new_arg_started) {
+                args[arg_idx++] = dst; // Store the address of the write head
+                new_arg_started = false;
+            }
+            
+            *dst++ = *src++; 
+        }
+    }
+    
+    *dst = '\0';
+    
+    // Check for hanging quotes
+    if (in_quote) {
+        fprintf(stderr, "Unterminated quote\n");
+        free(cmd);
+        free(args);
+        return NULL;
+    }
+
+    return args;
 }
 
 char* get_executable(struct State state, const char* name) {
