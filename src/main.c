@@ -17,6 +17,8 @@
 #define os_pathsep ":"
 #endif
 
+#define MAX_OUTPUT_SIZE 4096
+
 extern const struct Command* commands[];
 
 int main(int argc, char *argv[]) {
@@ -54,6 +56,9 @@ int main(int argc, char *argv[]) {
 		.paths = paths
 	};
 
+	char* out = malloc(MAX_OUTPUT_SIZE * sizeof(char));
+	char* err = malloc(MAX_OUTPUT_SIZE * sizeof(char));
+
 	// ======= Main loop =======
 
 main:
@@ -67,41 +72,103 @@ main:
 		char** args = get_arguments(input);
 		char*  cmd  = args[0];
 
-
-		for (int i = 0; commands[i] != NULL; i++) {
-			if (strcmp(cmd, commands[i]->name) == 0) {
-				commands[i]->func(&state, args);
-				free(args);
-				goto main;
-			}
+		execute_command(state, args, out, err);
+		if (strlen(err) > 0) {
+			fputs(err, stderr);
+			err[0] = '\0';
 		}
 
-		char* exe = get_executable(state, cmd);
-		if (exe != NULL) {
-			pid_t pid = fork();
-			if (pid == 0) {
-				// Child process
-				execv(exe, args);
-				exit(0);
-			} else if (pid > 0) {
-				// Parent process
-				int status;
-				waitpid(pid, &status, 0);
-			} else {
-				// Fork failed
-				perror("fork failed");
-				exit(-1);
-			}
-
-			free(args);
-			continue;
+		if (strlen(out) > 0) {
+			fputs(out, stdout);
+			out[0] = '\0';
 		}
-
-		printf("%s: command not found\n", cmd);
 	}
 
 	free(paths);
 	return 0;
+}
+
+void execute_command(struct State state, char** args, char* out, char* err) {
+	char* cmd = args[0];
+
+	for (int i = 0; commands[i] != NULL; i++) {
+		if (strcmp(cmd, commands[i]->name) == 0) {
+			commands[i]->func(&state, args, out, err);
+			return;
+		}
+	}
+
+	char* exe = get_executable(state, cmd);
+	if (exe != NULL) {
+
+		int stdout_pipe[2];
+		int stderr_pipe[2];
+
+		if (pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) {
+			perror("pipe failed");
+			exit(-1);
+		}
+		
+		pid_t pid = fork();
+		if (pid == 0) {
+			// Close read end
+			close(stdout_pipe[0]); 
+			close(stderr_pipe[0]);
+
+			// Redirect stdout and stderr to pipes
+			if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
+				perror("dup2 stdout failed");
+				exit(-1);
+			}
+			if (dup2(stderr_pipe[1], STDERR_FILENO) == -1) {
+				perror("dup2 stderr failed");
+				exit(-1);
+			}
+
+			// Close the write ends after duplicating
+			close(stdout_pipe[1]);
+			close(stderr_pipe[1]);
+
+			// Execute the command
+			execv(exe, args);
+
+			// If execv returns, there was an error
+			exit(-1);
+		} else if (pid > 0) {
+ 			// Close write end
+			close(stdout_pipe[1]); 
+			close(stderr_pipe[1]);
+
+			int status;
+			waitpid(pid, &status, 0);
+
+			// Read stdout
+			ssize_t nbytes = read(stdout_pipe[0], out, MAX_OUTPUT_SIZE - 1);
+			if (nbytes >= 0) {
+				out[nbytes] = '\0';
+			} else {
+				out[0] = '\0';
+			}
+			close(stdout_pipe[0]);
+
+			nbytes = read(stderr_pipe[0], err, MAX_OUTPUT_SIZE - 1);
+			if (nbytes >= 0) {
+				err[nbytes] = '\0';
+			} else {
+				err[0] = '\0';
+			}
+			close(stderr_pipe[0]);
+
+		} else {
+			// Fork failed
+			perror("fork failed");
+			exit(-1);
+		}
+
+		return;
+	}
+
+	sprintf(err, "%s: command not found\n", cmd);
 }
 
 char** get_arguments(const char* input) {
