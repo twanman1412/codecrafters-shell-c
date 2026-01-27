@@ -48,8 +48,6 @@ void type(struct State *state, char **args) {
 	} else {
 		printf("%s: not found\n", cmd);
 	}
-
-	free(cmd);
 }
 
 struct Command type_cmd = {
