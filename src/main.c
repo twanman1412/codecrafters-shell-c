@@ -72,6 +72,87 @@ main:
 		char** args = get_arguments(input);
 		char*  cmd  = args[0];
 
+		for (int i = 0; args[i] != NULL; i++) {
+			char *arg = args[i];
+			if (strcmp(arg, ">") == 0 || strcmp(arg, "1>") == 0) {
+				char* filename = args[i + 1];
+				if (filename == NULL) {
+					sprintf(err, "Syntax error: expected filename after %s\n", arg);
+					free(args);
+					goto main;
+				}
+				if (args[i + 2] != NULL) {
+					sprintf(err, "Syntax error: too many arguments after %s\n", arg);
+					free(args);
+					goto main;
+				}
+
+				char** new_args = malloc((i + 1) * sizeof(char*));
+				for (int j = 0; j < i; j++) {
+					new_args[j] = args[j];
+				}
+				new_args[i] = NULL;
+
+				execute_command(state, new_args, out, err);
+				if (strlen(err) > 0) {
+					fputs(err, stderr);
+					err[0] = '\0';
+				}
+
+				FILE *file = fopen(filename, "w");
+				if (file == NULL) {
+					sprintf(err, "Error: could not open %s for writing\n", filename);
+					free(args);
+					free(new_args);
+					goto main;
+				}
+
+				fputs(out, file);
+				fclose(file);
+				out[0] = '\0';
+				free(args);
+				free(new_args);
+				goto main;
+			}
+
+			if (strcmp(arg, "2>") == 0) {
+				char* filename = args[i + 1];
+				if (filename == NULL) {
+					sprintf(err, "Syntax error: expected filename after %s\n", arg);
+					free(args);
+					goto main;
+				}
+				if (args[i + 2] != NULL) {
+					sprintf(err, "Syntax error: too many arguments after %s\n", arg);
+					free(args);
+					goto main;
+				}
+
+				char** new_args = malloc((i + 1) * sizeof(char*));
+				for (int j = 0; j < i; j++) {
+					new_args[j] = args[j];
+				}
+				new_args[i] = NULL;
+
+				execute_command(state, new_args, out, err);
+
+				FILE *file = fopen(filename, "w");
+				if (file == NULL) {
+					sprintf(err, "Error: could not open %s for writing\n", filename);
+					free(args);
+					free(new_args);
+					goto main;
+				}
+
+				fputs(err, file);
+				fclose(file);
+				out[0] = '\0';
+				free(args);
+				free(new_args);
+				goto main;
+			}
+		}
+
 		execute_command(state, args, out, err);
 		if (strlen(err) > 0) {
 			fputs(err, stderr);
