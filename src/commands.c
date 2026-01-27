@@ -32,22 +32,21 @@ struct Command echo_cmd = {
 };
 
 void type(struct State *state, char **args) {
-	char* name = args[1]; // first argument is the command name
+	char* cmd = args[1]; // first argument is the command name
 
 	for (int i = 0; commands[i] != NULL; i++) {
-		if (strcmp(name, commands[i]->name) == 0) {
-			printf("%s is a shell builtin\n", name);
+		if (strcmp(cmd, commands[i]->name) == 0) {
+			printf("%s is a shell builtin\n", cmd);
 			return;
 		}
 	}
 
-	char* cmd = get_command(name);
 	char* exe = get_executable(*state, cmd);
 	if (exe != NULL) {
-		printf("%s is %s\n", name, exe);
+		printf("%s is %s\n", cmd, exe);
 		free(exe);
 	} else {
-		printf("%s: not found\n", name);
+		printf("%s: not found\n", cmd);
 	}
 
 	free(cmd);
