@@ -118,9 +118,34 @@ char** get_arguments(const char* input) {
     bool in_single_quote = false;
 	bool in_double_quote = false;
 
+	bool escape = false;
+
     bool new_arg_started = true;
 
     while (*src) {
+		if (escape) {
+            if (new_arg_started) {
+				args[arg_idx++] = dst;
+                new_arg_started = false;
+            }
+
+			*dst++ = *src++;
+			escape = false;
+			continue;
+		}
+
+		if (*src == '\\' && !in_single_quote && !in_double_quote) {
+			escape = true;
+			src++; // Skip the backslash
+			continue;
+		} else if (*src == '\\' && in_double_quote) {
+			if (*(src + 1) == '\"' || *(src + 1) == '\\') {
+				escape = true;
+				src++; // Skip the backslash
+				continue;
+			}
+		}
+
         if (*src == '\'' && !in_double_quote) {
             in_single_quote = !in_single_quote;
             src++; // Skip the quote in the output
@@ -152,13 +177,26 @@ char** get_arguments(const char* input) {
     
     *dst = '\0';
     
-    // Check for hanging quotes
     if (in_single_quote) {
         fprintf(stderr, "Unterminated quote\n");
         free(cmd);
         free(args);
         return NULL;
     }
+
+	if (in_double_quote) {
+		fprintf(stderr, "Unterminated quote\n");
+		free(cmd);
+		free(args);
+		return NULL;
+	}
+
+	if (escape) {
+		fprintf(stderr, "Unterminated escape\n");
+		free(cmd);
+		free(args);
+		return NULL;
+	}
 
     return args;
 }
