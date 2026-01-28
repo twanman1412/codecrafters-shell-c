@@ -74,7 +74,14 @@ main:
 
 		for (int i = 0; args[i] != NULL; i++) {
 			char *arg = args[i];
-			if (strcmp(arg, ">") == 0 || strcmp(arg, "1>") == 0) {
+			if (strcmp(arg, ">") == 0 || strcmp(arg, "1>") == 0 ||
+					strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
+
+				bool append = false;
+				if (strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
+					append = true;
+				}
+
 				char* filename = args[i + 1];
 				if (filename == NULL) {
 					sprintf(err, "Syntax error: expected filename after %s\n", arg);
@@ -99,7 +106,12 @@ main:
 					err[0] = '\0';
 				}
 
-				FILE *file = fopen(filename, "w");
+				FILE *file;
+				if (append) {
+					file = fopen(filename, "a");
+				} else {
+					file = fopen(filename, "w");
+				}
 				if (file == NULL) {
 					sprintf(err, "Error: could not open %s for writing\n", filename);
 					free(args);
@@ -115,7 +127,13 @@ main:
 				goto main;
 			}
 
-			if (strcmp(arg, "2>") == 0) {
+			if (strcmp(arg, "2>") == 0 || strcmp(arg, "2>>") == 0) {
+
+				bool append = false;
+				if (strcmp(arg, "2>>") == 0) {
+					append = true;
+				}
+
 				char* filename = args[i + 1];
 				if (filename == NULL) {
 					sprintf(err, "Syntax error: expected filename after %s\n", arg);
@@ -140,7 +158,13 @@ main:
 					out[0] = '\0';
 				}
 
-				FILE *file = fopen(filename, "w");
+				FILE *file;
+				if (append) {
+					file = fopen(filename, "a");
+				} else {
+					file = fopen(filename, "w");
+				}
+
 				if (file == NULL) {
 					sprintf(err, "Error: could not open %s for writing\n", filename);
 					free(args);
