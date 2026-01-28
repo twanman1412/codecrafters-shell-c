@@ -98,6 +98,7 @@ main:
 						printf("\x1B[C"); // Move cursor right
 					}
 				}
+				printf("\x07"); // Bell character
 				c = getchar();
 				continue; // Skip adding tab to input
 			}
