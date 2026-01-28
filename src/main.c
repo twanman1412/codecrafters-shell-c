@@ -93,7 +93,7 @@ main:
 				}
 				new_args[i] = NULL;
 
-				execute_command(state, new_args, out, err);
+				execute_command(&state, new_args, out, err);
 				if (strlen(err) > 0) {
 					fputs(err, stderr);
 					err[0] = '\0';
@@ -134,7 +134,7 @@ main:
 				}
 				new_args[i] = NULL;
 
-				execute_command(state, new_args, out, err);
+				execute_command(&state, new_args, out, err);
 
 				FILE *file = fopen(filename, "w");
 				if (file == NULL) {
@@ -153,7 +153,7 @@ main:
 			}
 		}
 
-		execute_command(state, args, out, err);
+		execute_command(&state, args, out, err);
 		if (strlen(err) > 0) {
 			fputs(err, stderr);
 			err[0] = '\0';
@@ -169,17 +169,17 @@ main:
 	return 0;
 }
 
-void execute_command(struct State state, char** args, char* out, char* err) {
+void execute_command(struct State *state, char** args, char* out, char* err) {
 	char* cmd = args[0];
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strcmp(cmd, commands[i]->name) == 0) {
-			commands[i]->func(&state, args, out, err);
+			commands[i]->func(state, args, out, err);
 			return;
 		}
 	}
 
-	char* exe = get_executable(state, cmd);
+	char* exe = get_executable(*state, cmd);
 	if (exe != NULL) {
 
 		int stdout_pipe[2];
