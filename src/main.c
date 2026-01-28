@@ -135,6 +135,10 @@ main:
 				new_args[i] = NULL;
 
 				execute_command(&state, new_args, out, err);
+				if (strlen(out) > 0) {
+					fputs(out, stdout);
+					out[0] = '\0';
+				}
 
 				FILE *file = fopen(filename, "w");
 				if (file == NULL) {
