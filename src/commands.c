@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,8 +8,8 @@
 
 const struct Command* commands[];
 
-void __exit(struct State *_, char **args, char* out, char* err) {
-	exit(0);
+void __exit(struct State *state, char **args, char* out, char* err) {
+	state->exit = true;
 }
 
 struct Command exit_cmd = {

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <termios.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -24,6 +25,13 @@ extern const struct Command* commands[];
 int main(int argc, char *argv[]) {
 	// Flush after every printf
 	setbuf(stdout, NULL);
+
+	struct termios oldt, newt;
+	tcgetattr(STDIN_FILENO, &oldt);
+	newt = oldt;
+
+	newt.c_lflag &= ~(ICANON | ECHO); 
+	tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
 	// ======= Get PATH entries =======
 
@@ -53,7 +61,8 @@ int main(int argc, char *argv[]) {
 
 	struct State state = {
 		.cwd = getcwd(NULL, 0),
-		.paths = paths
+		.paths = paths,
+		.exit = false
 	};
 
 	char* out = malloc(MAX_OUTPUT_SIZE * sizeof(char));
@@ -62,13 +71,57 @@ int main(int argc, char *argv[]) {
 	// ======= Main loop =======
 
 main:
-	while (1) {
+	while (!state.exit) {
 		printf("$ ");
 
 		char input[256] = {0};
-		fgets(input, sizeof(input), stdin);
+		int i = 0;
+		char c = getchar();
+		while (c != '\n') {
+			if (c == 0x1B) { // escape sequences
+				getchar(); // Skip the next char 
+				getchar(); // Skip the next char
+				c = getchar(); // Get new char
+				continue;
+			}
 
-		input[strcspn(input, "\n")] = 0;
+			if (c == '\t' || c == 0x09) { // Tab character
+				char* completion = get_autocomplete(input);
+				if (completion != NULL) {
+					strcpy(input, completion);
+					input[strlen(completion)] = ' ';
+					free(completion);
+					printf("\r$ %s", input);
+					// Move cursor to end
+					i = strlen(input);
+					for (int i = strlen(completion) - strlen(input); i > 1; i--) {
+						printf("\x1B[C"); // Move cursor right
+					}
+				}
+				c = getchar();
+				continue; // Skip adding tab to input
+			}
+			if (c == '\b' || c == 0x08 || c == 0x7F) { // Backspaces
+				if (i > 0) {
+					i--;
+					input[i] = '\0';
+					printf("\r$ %s ", input); // Overwrite last char
+					printf("\b"); // Move back one space
+				}
+				c = getchar();
+				continue; // Skip adding backspace to input	
+			}
+
+			input[i++] = c;
+			putchar(c);
+			c = getchar();
+		}
+
+		putchar('\n');
+		if (strlen(input) == 0) {
+			continue;
+		}
+
 		char** args = get_arguments(input);
 		char*  cmd  = args[0];
 
@@ -194,6 +247,7 @@ main:
 	}
 
 	free(paths);
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 	return 0;
 }
 
@@ -395,4 +449,26 @@ char* get_executable(struct State state, const char* name) {
 	}
 
 	return NULL;
+}
+
+char* get_autocomplete(const char* input) {
+
+	char* cmd = strdup(input);
+	if (!cmd) return NULL;
+
+	// No internal commands longer than 7 characters
+	char* match = malloc(256 * sizeof(char));
+	match[0] = '\0';
+
+	for (int i = 0; commands[i] != NULL; i++) {
+		if (strncmp(cmd, commands[i]->name, strlen(cmd)) == 0) {
+			if (strlen(match) == 0) {
+				sprintf(match, "%s", commands[i]->name);
+			} else {
+				return NULL;
+			}
+		}
+	}
+
+	return match;
 }
