@@ -79,7 +79,7 @@ struct Command pwd_cmd = {
 void _cd(struct State *state, char **args, char* out, char* err) {
 	const char* path = args[1];
 
-	if (path == NULL) {
+	if (path == NULL || strcmp(path, "~") == 0) {
 		const char* home = getenv("HOME");
 		if (chdir(home) == 0) {
 			char* new_cwd = getcwd(NULL, 0);
@@ -105,7 +105,7 @@ void _cd(struct State *state, char **args, char* out, char* err) {
 	if (strncmp(path, "~", 1) == 0) {
 		const char* home = getenv("HOME");
 
-		char* new_path;
+		char* new_path = malloc(strlen(home) + strlen(path));
 		sprintf(new_path, "%s/%s", home, path + 1);
 
 		if (chdir(new_path) == 0) {
