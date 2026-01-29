@@ -274,6 +274,54 @@ main:
 				free(new_args);
 				goto main;
 			}
+
+			if (strcmp(arg, "|") == 0) {
+				char** left_args = malloc((i + 1) * sizeof(char*));
+				for (int j = 0; j < i; j++) {
+					left_args[j] = args[j];
+				}
+				char** right_args = malloc((strlen(input) - i) * sizeof(char*));
+				for (int j = i + 1, k = 0; args[j] != NULL; j++) {
+					right_args[k++] = args[j];
+				}
+				
+				int pipefd[2];
+				if (pipe(pipefd) == -1) {
+					perror("pipe failed");
+					exit(-1);
+				}
+
+				pid_t left_pid = fork();
+				if (left_pid == 0) {
+					// Left child: write to pipe
+					dup2(pipefd[1], STDOUT_FILENO);
+					close(pipefd[0]);
+					close(pipefd[1]);
+					execute_command(&state, left_args, stdin, stdout, stderr);
+					exit(0);
+				}
+
+				pid_t right_pid = fork();
+				if (right_pid == 0) {
+					// Right child: read from pipe
+					dup2(pipefd[0], STDIN_FILENO);
+					close(pipefd[0]);
+					close(pipefd[1]);
+					execute_command(&state, right_args, stdin, stdout, stderr);
+					exit(0);
+				}
+
+				// Parent closes both ends
+				close(pipefd[0]);
+				close(pipefd[1]);
+				waitpid(left_pid, NULL, 0);
+				waitpid(right_pid, NULL, 0);
+
+				free(args);
+				free(left_args);
+				free(right_args);
+				goto main;
+			}
 		}
 
 		execute_command(&state, args, stdin, stdout, stderr);
