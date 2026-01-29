@@ -111,6 +111,23 @@ main:
 						continue;
 					} else {
 						// Multiple matches
+						char* lcp = longest_common_prefix(completions);
+						if (lcp != NULL && strlen(lcp) > strlen(input)) {
+							// Autocomplete to longest common prefix
+							int len = strlen(lcp);
+							int input_len = strlen(input);
+							for (int j = input_len; j < len; j++) {
+								input[i++] = lcp[j];
+								putchar(lcp[j]);
+							}
+							free(lcp);
+
+							input[i] = '\0';
+
+							c = getchar();
+							continue;
+						}
+
 						printf("\x07");
 						c = getchar();
 						if (c != '\t') {
