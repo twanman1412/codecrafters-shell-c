@@ -2,5 +2,5 @@
 
 struct Command {
 	char* name;
-	void (*func)(struct State *state, char** args, char* out, char* err);
+	void (*func)(struct State *state, char** args, FILE* in, FILE* out, FILE* err);
 };

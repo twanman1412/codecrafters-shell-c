@@ -203,12 +203,6 @@ main:
 				}
 				new_args[i] = NULL;
 
-				execute_command(&state, new_args, out, err);
-				if (strlen(err) > 0) {
-					fputs(err, stderr);
-					err[0] = '\0';
-				}
-
 				FILE *file;
 				if (append) {
 					file = fopen(filename, "a");
@@ -222,9 +216,13 @@ main:
 					goto main;
 				}
 
-				fputs(out, file);
+				execute_command(&state, new_args, stdin, file, stderr);
+				if (strlen(err) > 0) {
+					fputs(err, stderr);
+					err[0] = '\0';
+				}
+
 				fclose(file);
-				out[0] = '\0';
 				free(args);
 				free(new_args);
 				goto main;
@@ -255,12 +253,6 @@ main:
 				}
 				new_args[i] = NULL;
 
-				execute_command(&state, new_args, out, err);
-				if (strlen(out) > 0) {
-					fputs(out, stdout);
-					out[0] = '\0';
-				}
-
 				FILE *file;
 				if (append) {
 					file = fopen(filename, "a");
@@ -269,22 +261,22 @@ main:
 				}
 
 				if (file == NULL) {
-					sprintf(err, "Error: could not open %s for writing\n", filename);
+					fprintf(stderr, "Error: could not open %s for writing\n", filename);
 					free(args);
 					free(new_args);
 					goto main;
 				}
 
-				fputs(err, file);
+				execute_command(&state, new_args, stdin, stdout, file);
+
 				fclose(file);
-				out[0] = '\0';
 				free(args);
 				free(new_args);
 				goto main;
 			}
 		}
 
-		execute_command(&state, args, out, err);
+		execute_command(&state, args, stdin, stdout, stderr);
 		if (strlen(err) > 0) {
 			fputs(err, stderr);
 			err[0] = '\0';
@@ -301,46 +293,43 @@ main:
 	return 0;
 }
 
-void execute_command(struct State *state, char** args, char* out, char* err) {
+void execute_command(struct State *state, char** args, FILE* in, FILE* out, FILE* err) {
 	char* cmd = args[0];
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strcmp(cmd, commands[i]->name) == 0) {
-			commands[i]->func(state, args, out, err);
+			commands[i]->func(state, args, in, out, err);
 			return;
 		}
 	}
 
 	char* exe = get_executable(*state, cmd);
 	if (exe != NULL) {
-
-		int stdout_pipe[2];
-		int stderr_pipe[2];
-
-		if (pipe(stdout_pipe) == -1 || pipe(stderr_pipe) == -1) {
-			perror("pipe failed");
-			exit(-1);
-		}
-		
 		pid_t pid = fork();
 		if (pid == 0) {
-			// Close read end
-			close(stdout_pipe[0]); 
-			close(stderr_pipe[0]);
-
-			// Redirect stdout and stderr to pipes
-			if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
-				perror("dup2 stdout failed");
-				exit(-1);
-			}
-			if (dup2(stderr_pipe[1], STDERR_FILENO) == -1) {
-				perror("dup2 stderr failed");
-				exit(-1);
+			// Redirect stdin
+			if (in && fileno(in) != STDIN_FILENO) {
+				if (dup2(fileno(in), STDIN_FILENO) == -1) {
+					perror("dup2 stdin failed");
+					exit(-1);
+				}
 			}
 
-			// Close the write ends after duplicating
-			close(stdout_pipe[1]);
-			close(stderr_pipe[1]);
+			// Redirect stdout
+			if (out && fileno(out) != STDOUT_FILENO) {
+				if (dup2(fileno(out), STDOUT_FILENO) == -1) {
+					perror("dup2 stdout failed");
+					exit(-1);
+				}
+			}
+
+			// Redirect stderr
+			if (err && fileno(err) != STDERR_FILENO) {
+				if (dup2(fileno(err), STDERR_FILENO) == -1) {
+					perror("dup2 stderr failed");
+					exit(-1);
+				}
+			}
 
 			// Execute the command
 			execv(exe, args);
@@ -348,30 +337,8 @@ void execute_command(struct State *state, char** args, char* out, char* err) {
 			// If execv returns, there was an error
 			exit(-1);
 		} else if (pid > 0) {
- 			// Close write end
-			close(stdout_pipe[1]); 
-			close(stderr_pipe[1]);
-
 			int status;
 			waitpid(pid, &status, 0);
-
-			// Read stdout
-			ssize_t nbytes = read(stdout_pipe[0], out, MAX_OUTPUT_SIZE - 1);
-			if (nbytes >= 0) {
-				out[nbytes] = '\0';
-			} else {
-				out[0] = '\0';
-			}
-			close(stdout_pipe[0]);
-
-			nbytes = read(stderr_pipe[0], err, MAX_OUTPUT_SIZE - 1);
-			if (nbytes >= 0) {
-				err[nbytes] = '\0';
-			} else {
-				err[0] = '\0';
-			}
-			close(stderr_pipe[0]);
-
 		} else {
 			// Fork failed
 			perror("fork failed");
@@ -381,7 +348,7 @@ void execute_command(struct State *state, char** args, char* out, char* err) {
 		return;
 	}
 
-	sprintf(err, "%s: command not found\n", cmd);
+	fprintf(err, "%s: command not found\n", cmd);
 }
 
 char** get_arguments(const char* input) {

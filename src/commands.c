@@ -8,7 +8,7 @@
 
 const struct Command* commands[];
 
-void __exit(struct State *state, char **args, char* out, char* err) {
+void __exit(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
 	state->exit = true;
 }
 
@@ -17,7 +17,7 @@ struct Command exit_cmd = {
 	.func = &__exit
 };
 
-void _echo(struct State *_, char **args, char* out, char* err) {
+void _echo(struct State *_, char **args, FILE* in, FILE* out, FILE* err) {
 	int length = 0;
 	for (int i = 1; args[i] != NULL; i++) {
 		length += strlen(args[i]) + 1; // +1 for space or newline
@@ -36,7 +36,7 @@ void _echo(struct State *_, char **args, char* out, char* err) {
 	*dst++ = '\n';
 	*dst = '\0';
 
-	sprintf(out, "%s", res);
+	fprintf(out, "%s", res);
 }
 
 struct Command echo_cmd = {
@@ -44,22 +44,22 @@ struct Command echo_cmd = {
 	.func = &_echo
 };
 
-void type(struct State *state, char **args, char* out, char* err) {
+void type(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
 	char* cmd = args[1]; // first argument is the command name
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strcmp(cmd, commands[i]->name) == 0) {
-			sprintf(out, "%s is a shell builtin\n", cmd);
+			fprintf(out, "%s is a shell builtin\n", cmd);
 			return;
 		}
 	}
 
 	char* exe = get_executable(*state, cmd);
 	if (exe != NULL) {
-		sprintf(out, "%s is %s\n", cmd, exe);
+		fprintf(out, "%s is %s\n", cmd, exe);
 		free(exe);
 	} else {
-		sprintf(out, "%s: not found\n", cmd);
+		fprintf(out, "%s: not found\n", cmd);
 	}
 }
 
@@ -68,8 +68,8 @@ struct Command type_cmd = {
 	.func = &type
 };
 
-void _pwd(struct State *state, char **args, char* out, char* err) {
-	sprintf(out, "%s\n", state->cwd);
+void _pwd(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
+	fprintf(out, "%s\n", state->cwd);
 }
 
 struct Command pwd_cmd = {
@@ -77,7 +77,7 @@ struct Command pwd_cmd = {
 	.func = &_pwd
 };
 
-void _cd(struct State *state, char **args, char* out, char* err) {
+void _cd(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
 	const char* path = args[1];
 
 	if (path == NULL || strcmp(path, "~") == 0) {
@@ -88,7 +88,7 @@ void _cd(struct State *state, char **args, char* out, char* err) {
 			return;
 		}
 
-		sprintf(err, "cd: %s: No such file or directory\n", home);
+		fprintf(err, "cd: %s: No such file or directory\n", home);
 		return;
 	}
 
@@ -99,7 +99,7 @@ void _cd(struct State *state, char **args, char* out, char* err) {
 			return;
 		} 
 
-		sprintf(err, "cd: %s: No such file or directory\n", path);
+		fprintf(err, "cd: %s: No such file or directory\n", path);
 		return; 
 	}
 
@@ -115,7 +115,7 @@ void _cd(struct State *state, char **args, char* out, char* err) {
 			return;
 		}
 
-		sprintf(err, "cd: %s: No such file or directory\n", path);
+		fprintf(err, "cd: %s: No such file or directory\n", path);
 		return;
 	}
 
@@ -130,7 +130,7 @@ void _cd(struct State *state, char **args, char* out, char* err) {
 	}
 
 	free(new_path);
-	sprintf(err, "cd: %s: No such file or directory\n", path);
+	fprintf(err, "cd: %s: No such file or directory\n", path);
 }
 
 struct Command cd_cmd = {
