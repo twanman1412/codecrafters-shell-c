@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <termios.h>
+#include <dirent.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -86,7 +87,7 @@ main:
 			}
 
 			if (c == '\t' || c == 0x09) { // Tab character
-				char* completion = get_autocomplete(input);
+				char* completion = get_autocomplete(state, input);
 				if (completion != NULL) {
 					strcpy(input, completion);
 					input[strlen(completion)] = ' ';
@@ -452,12 +453,11 @@ char* get_executable(struct State state, const char* name) {
 	return NULL;
 }
 
-char* get_autocomplete(const char* input) {
+char* get_autocomplete(struct State state, const char* input) {
 
 	char* cmd = strdup(input);
 	if (!cmd) return NULL;
 
-	// No internal commands longer than 7 characters
 	char* match = malloc(256 * sizeof(char));
 	match[0] = '\0';
 
@@ -469,6 +469,42 @@ char* get_autocomplete(const char* input) {
 				return NULL;
 			}
 		}
+	}
+
+	if (strlen(match) > 0) {
+		free(cmd);
+		return match;
+	}
+
+	for (int i = 0; state.paths[i] != NULL; i++) {
+		char* path = state.paths[i];
+
+		DIR* dir = opendir(path);
+		if (dir == NULL) {
+			continue;
+		}
+
+		struct dirent* entry;
+		while ((entry = readdir(dir)) != NULL) {
+			if (strncmp(cmd, entry->d_name, strlen(cmd)) == 0) {
+				char* fullpath = malloc(strlen(path) + strlen(entry->d_name) + 2);
+				sprintf(fullpath, "%s/%s", path, entry->d_name);
+
+				struct stat perm;
+				if (stat(fullpath, &perm) == 0 && perm.st_mode & S_IXUSR) {
+					if (strlen(match) == 0) {
+						sprintf(match, "%s", entry->d_name);
+					} else {
+						free(fullpath);
+						closedir(dir);
+						free(cmd);
+						return NULL;
+					}
+				}
+				free(fullpath);
+			}
+		}
+		closedir(dir);
 	}
 
 	return match;
