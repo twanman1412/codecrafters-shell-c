@@ -15,3 +15,23 @@ void sort_strings(char** strings) {
 		}
 	}
 }
+
+char* longest_common_prefix(char** strings) {
+	if (strings == NULL || strings[0] == NULL) return NULL;
+
+	char* prefix = strdup(strings[0]);
+	if (prefix == NULL) return NULL;
+
+	for (int i = 1; strings[i] != NULL; i++) {
+		int j = 0;
+		while (prefix[j] && strings[i][j] && prefix[j] == strings[i][j]) {
+			j++;
+		}
+		prefix[j] = '\0'; // Truncate prefix
+		if (prefix[0] == '\0') {
+			break; // No common prefix
+		}
+	}
+
+	return prefix;
+}
