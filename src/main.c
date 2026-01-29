@@ -12,6 +12,7 @@
 
 #include "main.h"
 #include "commands.h"
+#include "utils.h"
 
 #ifdef _WIN32
 #define os_pathsep ";"
@@ -87,18 +88,48 @@ main:
 			}
 
 			if (c == '\t' || c == 0x09) { // Tab character
-				char* completion = get_autocomplete(state, input);
-				if (completion != NULL) {
-					strcpy(input, completion);
-					input[strlen(completion)] = ' ';
-					free(completion);
-					printf("\r$ %s", input);
-					// Move cursor to end
-					i = strlen(input);
-					for (int i = strlen(completion) - strlen(input); i > 1; i--) {
-						printf("\x1B[C"); // Move cursor right
+				char** completions = get_autocomplete(state, input);
+				if (completions != NULL || completions[0] == NULL) {
+					if (completions[0] != NULL && completions[1] == NULL) {
+						// Single match, autocomplete
+						int len = strlen(completions[0]);
+						int input_len = strlen(input);
+						for (int j = input_len; j < len; j++) {
+							input[i++] = completions[0][j];
+							putchar(completions[0][j]);
+						}
+
+						input[i++] = ' ';
+						putchar(' ');
+
+						input[i] = '\0';
+
+						free(completions[0]);
+						free(completions);
+
+						c = getchar();
+						continue;
+					} else {
+						// Multiple matches
+						printf("\x07");
+						c = getchar();
+						if (c != '\t') {
+							continue;
+						}
+
+						sort_strings(completions);
+						printf("\n");
+						for (int j = 0; completions[j] != NULL; j++) {
+							printf("%s  ", completions[j]);
+							free(completions[j]);
+						}
+						free(completions);
+						printf("\n$ %s", input);
+						c = getchar();
+						continue;
 					}
 				}
+
 				printf("\x07"); // Bell character
 				c = getchar();
 				continue; // Skip adding tab to input
@@ -453,27 +484,24 @@ char* get_executable(struct State state, const char* name) {
 	return NULL;
 }
 
-char* get_autocomplete(struct State state, const char* input) {
+char** get_autocomplete(struct State state, const char* input) {
 
 	char* cmd = strdup(input);
 	if (!cmd) return NULL;
 
-	char* match = malloc(256 * sizeof(char));
-	match[0] = '\0';
+	char** matches = malloc(256 * sizeof(char*));
+	int idx = 0;
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strncmp(cmd, commands[i]->name, strlen(cmd)) == 0) {
-			if (strlen(match) == 0) {
-				sprintf(match, "%s", commands[i]->name);
-			} else {
-				return NULL;
-			}
+			matches[idx++] = strdup(commands[i]->name);
 		}
 	}
 
-	if (strlen(match) > 0) {
+	if (idx > 0) {
 		free(cmd);
-		return match;
+		matches[idx] = NULL;
+		return matches;
 	}
 
 	for (int i = 0; state.paths[i] != NULL; i++) {
@@ -492,14 +520,7 @@ char* get_autocomplete(struct State state, const char* input) {
 
 				struct stat perm;
 				if (stat(fullpath, &perm) == 0 && perm.st_mode & S_IXUSR) {
-					if (strlen(match) == 0) {
-						sprintf(match, "%s", entry->d_name);
-					} else {
-						free(fullpath);
-						closedir(dir);
-						free(cmd);
-						return NULL;
-					}
+					matches[idx++] = strdup(entry->d_name);
 				}
 				free(fullpath);
 			}
@@ -507,5 +528,7 @@ char* get_autocomplete(struct State state, const char* input) {
 		closedir(dir);
 	}
 
-	return match;
+	free(cmd);
+	matches[idx] = NULL;
+	return matches;
 }

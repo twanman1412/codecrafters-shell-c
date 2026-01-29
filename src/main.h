@@ -13,4 +13,4 @@ char** get_arguments(const char* input);
 
 char* get_executable(struct State state, const char* name);
 
-char* get_autocomplete(struct State state, const char* input);
+char** get_autocomplete(struct State state, const char* input);
