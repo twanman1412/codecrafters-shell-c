@@ -138,7 +138,15 @@ struct Command cd_cmd = {
 	.func = &_cd
 };
 
-void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {}
+void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
+	char* entry = *state->history;
+	int index = 1;
+	while (entry != NULL) {
+		fprintf(out, "\t%d %s\n", index++, entry);
+		state->history++;
+		entry = *state->history;
+	}
+}
 
 struct Command history_cmd = {
 	.name = "history",
