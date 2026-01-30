@@ -70,6 +70,26 @@ int main(int argc, char *argv[]) {
 		.exit = false
 	};
 
+	// ======= Initialize history =======
+	const char* histfile = getenv("HISTFILE");
+	if (histfile != NULL) {
+		FILE* file = fopen(histfile, "r");
+
+		char* line = NULL;
+		size_t len = 0;
+		ssize_t read;
+		while ((read = getline(&line, &len, file)) != -1) {
+			// Remove newline character
+			if (line[read - 1] == '\n') {
+				line[read - 1] = '\0';
+			}
+
+			if (line[0] == '\0') break; // terminated by empty line
+
+			state.history[state.history_index++] = strdup(line);
+		}
+	}
+
 	int hist_pos = state.history_index;
 	int hist_start = state.history_index;
 
