@@ -138,11 +138,19 @@ struct Command cd_cmd = {
 	.func = &_cd
 };
 
+void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {}
+
+struct Command history_cmd = {
+	.name = "history",
+	.func = &_history
+};
+
 const struct Command* commands[] = {
 	&exit_cmd,
 	&echo_cmd,
 	&type_cmd,
 	&pwd_cmd,
 	&cd_cmd,
+	&history_cmd,
 	NULL
 };
