@@ -139,13 +139,26 @@ struct Command cd_cmd = {
 };
 
 void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
-	char* entry = *state->history;
-	int index = 1;
-	while (entry != NULL) {
-		fprintf(out, "\t%d %s\n", index++, entry);
-		state->history++;
-		entry = *state->history;
+	int histsize = 0; while (state->history[histsize++] != NULL);
+
+	int lim = histsize;
+	if (args[1] != NULL) {
+		lim = atoi(args[1]);
+		if (lim > histsize) {
+			lim = histsize;
+		}
 	}
+
+	int index = 0;
+	while (state->history[index] != NULL) {
+		if (index < histsize - lim - 1) {
+			index++;
+			continue;
+		}
+		char* entry = state->history[index];
+		fprintf(out, "\t%d %s\n", 1 + index++, entry);
+	}
+
 }
 
 struct Command history_cmd = {
