@@ -62,14 +62,16 @@ int main(int argc, char *argv[]) {
 
 	// ======= State setup =======
 
-	int history_index = 0;
-	int hist_pos = -1;
 	struct State state = {
 		.cwd = getcwd(NULL, 0),
 		.paths = paths,
 		.history = malloc(MAX_HISTORY_SIZE * sizeof(char*)),
+		.history_index = 0,
 		.exit = false
 	};
+
+	int hist_pos = state.history_index;
+	int hist_start = state.history_index;
 
 	// ======= Main loop =======
 main:
@@ -103,7 +105,7 @@ main:
 				}
 
 				if (a == 'B') { // Down arrow
-					if (hist_pos >= history_index) {
+					if (hist_pos >= state.history_index) {
 						c = getchar();
 						continue;
 					}
@@ -211,8 +213,8 @@ main:
 			continue;
 		}
 
-		state.history[history_index++] = strdup(input);
-		hist_pos = history_index;
+		state.history[state.history_index++] = strdup(input);
+		hist_pos = state.history_index;
 		char** args = get_arguments(input);
 		parse_and_execute_command(&state, (const char**) args, stdin, stdout, stderr);
 	}
