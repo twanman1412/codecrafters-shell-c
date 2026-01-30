@@ -21,6 +21,7 @@
 #endif
 
 #define MAX_OUTPUT_SIZE 4096
+#define MAX_HISTORY_SIZE 100
 
 extern const struct Command* commands[];
 
@@ -61,9 +62,11 @@ int main(int argc, char *argv[]) {
 
 	// ======= State setup =======
 
+	int history_index = 0;
 	struct State state = {
 		.cwd = getcwd(NULL, 0),
 		.paths = paths,
+		.history = malloc(MAX_HISTORY_SIZE * sizeof(char*)),
 		.exit = false
 	};
 
@@ -168,6 +171,7 @@ main:
 			continue;
 		}
 
+		state.history[history_index++] = strdup(input);
 		char** args = get_arguments(input);
 		parse_and_execute_command(&state, (const char**) args, stdin, stdout, stderr);
 	}

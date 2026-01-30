@@ -5,6 +5,7 @@
 struct State {
 	char* cwd;
 	char** paths;
+	char** history;
 	bool exit;
 };
 
