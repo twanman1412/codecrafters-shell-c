@@ -243,7 +243,7 @@ main:
 
 	const char* histfile_out = getenv("HISTFILE");
 	if (histfile_out != NULL) {
-		FILE* file = fopen(histfile_out, "w");
+		FILE* file = fopen(histfile_out, "a");
 		for (int i = hist_start; i < state.history_index; i++) {
 			fprintf(file, "%s\n", state.history[i]);
 		}
