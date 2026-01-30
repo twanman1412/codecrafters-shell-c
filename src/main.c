@@ -239,6 +239,17 @@ main:
 		parse_and_execute_command(&state, (const char**) args, stdin, stdout, stderr);
 	}
 
+	// ======= Write History =======
+
+	const char* histfile_out = getenv("HISTFILE");
+	if (histfile_out != NULL) {
+		FILE* file = fopen(histfile_out, "w");
+		for (int i = hist_start; i < state.history_index; i++) {
+			fprintf(file, "%s\n", state.history[i]);
+		}
+		fclose(file);
+	}
+
 	free(paths);
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 	return 0;
