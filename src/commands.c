@@ -171,6 +171,26 @@ void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE*
 		return;
 	}
 
+	if (args[1] != NULL && strcmp(args[1], "-w") == 0) {
+		const char* filename = args[2];
+		if (filename == NULL) {
+			fprintf(err, "history: filename argument required for -w option\n");
+			return;
+		}
+		FILE* file = fopen(filename, "w");
+		if (file == NULL) {
+			fprintf(err, "history: could not open file %s for writing\n", filename);
+			return;
+		}
+
+		for (int i = 0; i < state->history_index; i++) {
+			fprintf(file, "%s\n", state->history[i]);
+		}
+
+		fclose(file);
+		return;
+	}
+
 	int lim = state->history_index;
 	if (args[1] != NULL) {
 		lim = atoi(args[1]);
