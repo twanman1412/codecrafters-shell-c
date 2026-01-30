@@ -6,6 +6,7 @@ struct State {
 	char* cwd;
 	char** paths;
 	char** history;
+	int history_index;
 	bool exit;
 };
 

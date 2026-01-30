@@ -139,26 +139,55 @@ struct Command cd_cmd = {
 };
 
 void _history(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
-	int histsize = 0; while (state->history[histsize++] != NULL);
+	if (args[1] != NULL && strcmp(args[1], "-r") == 0) {
+		const char* filename = args[2];
+		if (filename == NULL) {
+			fprintf(err, "history: filename argument required for -r option\n");
+			return;
+		}
 
-	int lim = histsize;
+		FILE* file = fopen(filename, "r");
+		if (file == NULL) {
+			fprintf(err, "history: could not open file %s for reading\n", filename);
+			return;
+		}
+
+		char* line = NULL;
+		size_t len = 0;
+		ssize_t read;
+		while ((read = getline(&line, &len, file)) != -1) {
+			// Remove newline character
+			if (line[read - 1] == '\n') {
+				line[read - 1] = '\0';
+			}
+
+			if (line[0] == '\0') break; // terminated by empty line
+
+			state->history[state->history_index++] = strdup(line);
+		}
+
+		free(line);
+		fclose(file);
+		return;
+	}
+
+	int lim = state->history_index;
 	if (args[1] != NULL) {
 		lim = atoi(args[1]);
-		if (lim > histsize) {
-			lim = histsize;
+		if (lim > state->history_index) {
+			lim = state->history_index;
 		}
 	}
 
 	int index = 0;
 	while (state->history[index] != NULL) {
-		if (index < histsize - lim - 1) {
+		if (index < state->history_index - lim) {
 			index++;
 			continue;
 		}
 		char* entry = state->history[index];
 		fprintf(out, "\t%d %s\n", 1 + index++, entry);
 	}
-
 }
 
 struct Command history_cmd = {
