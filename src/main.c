@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
 	// ======= State setup =======
 
 	int history_index = 0;
+	int hist_pos = -1;
 	struct State state = {
 		.cwd = getcwd(NULL, 0),
 		.paths = paths,
@@ -81,7 +82,46 @@ main:
 		while (c != '\n') {
 			if (c == 0x1B) { // escape sequences
 				getchar(); // Skip the next char 
-				getchar(); // Skip the next char
+				char a = getchar(); // Skip the next char
+
+				// Up arrow
+				if (a == 'A') {
+					if (hist_pos <= 0) {
+						c = getchar();
+						continue;
+					}
+
+					if (state.history[--hist_pos] != NULL) {
+						// Clear current input
+						for (int j = 0; j < i; j++) {
+							printf("\b \b");
+						}
+						strcpy(input, state.history[hist_pos]);
+						printf("%s", input);
+						i = strlen(input);
+					}
+				}
+
+				if (a == 'B') { // Down arrow
+					if (hist_pos >= history_index) {
+						c = getchar();
+						continue;
+					}
+
+					for (int j = 0; j < i; j++) {
+						printf("\b \b");
+					}
+
+					if (state.history[++hist_pos] != NULL) {
+						strcpy(input, state.history[hist_pos]);
+						printf("%s", input);
+						i = strlen(input);
+					} else { // Empty line
+						i = 0;
+						input[0] = '\0';
+					}
+				}
+
 				c = getchar(); // Get new char
 				continue;
 			}
@@ -172,6 +212,7 @@ main:
 		}
 
 		state.history[history_index++] = strdup(input);
+		hist_pos = history_index;
 		char** args = get_arguments(input);
 		parse_and_execute_command(&state, (const char**) args, stdin, stdout, stderr);
 	}
