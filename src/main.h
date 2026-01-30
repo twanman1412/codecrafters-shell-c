@@ -8,9 +8,9 @@ struct State {
 	bool exit;
 };
 
-void execute_command(struct State *state, char** args, FILE* in, FILE* out, FILE* err);
+void parse_and_execute_command(struct State *state, const char** args, FILE* in, FILE* out, FILE* err);
+void execute_command(struct State *state, const char** args, FILE* in, FILE* out, FILE* err);
 
-char* get_command(const char* input);
 char** get_arguments(const char* input);
 
 char* get_executable(struct State state, const char* name);

@@ -67,11 +67,7 @@ int main(int argc, char *argv[]) {
 		.exit = false
 	};
 
-	char* out = malloc(MAX_OUTPUT_SIZE * sizeof(char));
-	char* err = malloc(MAX_OUTPUT_SIZE * sizeof(char));
-
 	// ======= Main loop =======
-
 main:
 	while (!state.exit) {
 		printf("$ ");
@@ -173,167 +169,7 @@ main:
 		}
 
 		char** args = get_arguments(input);
-		char*  cmd  = args[0];
-
-		for (int i = 0; args[i] != NULL; i++) {
-			char *arg = args[i];
-			if (strcmp(arg, ">") == 0 || strcmp(arg, "1>") == 0 ||
-					strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
-
-				bool append = false;
-				if (strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
-					append = true;
-				}
-
-				char* filename = args[i + 1];
-				if (filename == NULL) {
-					sprintf(err, "Syntax error: expected filename after %s\n", arg);
-					free(args);
-					goto main;
-				}
-				if (args[i + 2] != NULL) {
-					sprintf(err, "Syntax error: too many arguments after %s\n", arg);
-					free(args);
-					goto main;
-				}
-
-				char** new_args = malloc((i + 1) * sizeof(char*));
-				for (int j = 0; j < i; j++) {
-					new_args[j] = args[j];
-				}
-				new_args[i] = NULL;
-
-				FILE *file;
-				if (append) {
-					file = fopen(filename, "a");
-				} else {
-					file = fopen(filename, "w");
-				}
-				if (file == NULL) {
-					sprintf(err, "Error: could not open %s for writing\n", filename);
-					free(args);
-					free(new_args);
-					goto main;
-				}
-
-				execute_command(&state, new_args, stdin, file, stderr);
-				if (strlen(err) > 0) {
-					fputs(err, stderr);
-					err[0] = '\0';
-				}
-
-				fclose(file);
-				free(args);
-				free(new_args);
-				goto main;
-			}
-
-			if (strcmp(arg, "2>") == 0 || strcmp(arg, "2>>") == 0) {
-
-				bool append = false;
-				if (strcmp(arg, "2>>") == 0) {
-					append = true;
-				}
-
-				char* filename = args[i + 1];
-				if (filename == NULL) {
-					sprintf(err, "Syntax error: expected filename after %s\n", arg);
-					free(args);
-					goto main;
-				}
-				if (args[i + 2] != NULL) {
-					sprintf(err, "Syntax error: too many arguments after %s\n", arg);
-					free(args);
-					goto main;
-				}
-
-				char** new_args = malloc((i + 1) * sizeof(char*));
-				for (int j = 0; j < i; j++) {
-					new_args[j] = args[j];
-				}
-				new_args[i] = NULL;
-
-				FILE *file;
-				if (append) {
-					file = fopen(filename, "a");
-				} else {
-					file = fopen(filename, "w");
-				}
-
-				if (file == NULL) {
-					fprintf(stderr, "Error: could not open %s for writing\n", filename);
-					free(args);
-					free(new_args);
-					goto main;
-				}
-
-				execute_command(&state, new_args, stdin, stdout, file);
-
-				fclose(file);
-				free(args);
-				free(new_args);
-				goto main;
-			}
-
-			if (strcmp(arg, "|") == 0) {
-				char** left_args = malloc((i + 1) * sizeof(char*));
-				for (int j = 0; j < i; j++) {
-					left_args[j] = args[j];
-				}
-				char** right_args = malloc((strlen(input) - i) * sizeof(char*));
-				for (int j = i + 1, k = 0; args[j] != NULL; j++) {
-					right_args[k++] = args[j];
-				}
-				
-				int pipefd[2];
-				if (pipe(pipefd) == -1) {
-					perror("pipe failed");
-					exit(-1);
-				}
-
-				pid_t left_pid = fork();
-				if (left_pid == 0) {
-					// Left child: write to pipe
-					dup2(pipefd[1], STDOUT_FILENO);
-					close(pipefd[0]);
-					close(pipefd[1]);
-					execute_command(&state, left_args, stdin, stdout, stderr);
-					exit(0);
-				}
-
-				pid_t right_pid = fork();
-				if (right_pid == 0) {
-					// Right child: read from pipe
-					dup2(pipefd[0], STDIN_FILENO);
-					close(pipefd[0]);
-					close(pipefd[1]);
-					execute_command(&state, right_args, stdin, stdout, stderr);
-					exit(0);
-				}
-
-				// Parent closes both ends
-				close(pipefd[0]);
-				close(pipefd[1]);
-				waitpid(left_pid, NULL, 0);
-				waitpid(right_pid, NULL, 0);
-
-				free(args);
-				free(left_args);
-				free(right_args);
-				goto main;
-			}
-		}
-
-		execute_command(&state, args, stdin, stdout, stderr);
-		if (strlen(err) > 0) {
-			fputs(err, stderr);
-			err[0] = '\0';
-		}
-
-		if (strlen(out) > 0) {
-			fputs(out, stdout);
-			out[0] = '\0';
-		}
+		parse_and_execute_command(&state, (const char**) args, stdin, stdout, stderr);
 	}
 
 	free(paths);
@@ -341,8 +177,165 @@ main:
 	return 0;
 }
 
-void execute_command(struct State *state, char** args, FILE* in, FILE* out, FILE* err) {
-	char* cmd = args[0];
+void parse_and_execute_command(struct State *state, const char** args, FILE* in, FILE* out, FILE* err) {
+	const char* cmd = args[0];
+
+	for (int i = 0; args[i] != NULL; i++) {
+		const char *arg = args[i];
+		if (strcmp(arg, ">") == 0 || strcmp(arg, "1>") == 0 ||
+				strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
+
+			bool append = false;
+			if (strcmp(arg, ">>") == 0 || strcmp(arg, "1>>") == 0) {
+				append = true;
+			}
+
+			const char* filename = args[i + 1];
+			if (filename == NULL) {
+				fprintf(stderr, "Syntax error: expected filename after %s\n", arg);
+				free(args);
+				return;
+			}
+			if (args[i + 2] != NULL) {
+				fprintf(stderr, "Syntax error: too many arguments after %s\n", arg);
+				free(args);
+				return;
+			}
+
+			const char** new_args = malloc((i + 1) * sizeof(char*));
+			for (int j = 0; j < i; j++) {
+				new_args[j] = args[j];
+			}
+			new_args[i] = NULL;
+
+			FILE *file;
+			if (append) {
+				file = fopen(filename, "a");
+			} else {
+				file = fopen(filename, "w");
+			}
+			if (file == NULL) {
+				fprintf(stderr, "Error: could not open %s for writing\n", filename);
+				free(args);
+				free(new_args);
+				return;
+			}
+
+			execute_command(state, new_args, in, file, err);
+
+			fclose(file);
+			free(args);
+			free(new_args);
+			return;
+		}
+
+		if (strcmp(arg, "2>") == 0 || strcmp(arg, "2>>") == 0) {
+
+			bool append = false;
+			if (strcmp(arg, "2>>") == 0) {
+				append = true;
+			}
+
+			const char* filename = args[i + 1];
+			if (filename == NULL) {
+				fprintf(stderr, "Syntax error: expected filename after %s\n", arg);
+				free(args);
+				return;
+			}
+			if (args[i + 2] != NULL) {
+				fprintf(stderr, "Syntax error: too many arguments after %s\n", arg);
+				free(args);
+				return;
+			}
+
+			const char** new_args = malloc((i + 1) * sizeof(char*));
+			for (int j = 0; j < i; j++) {
+				new_args[j] = args[j];
+			}
+			new_args[i] = NULL;
+
+			FILE *file;
+			if (append) {
+				file = fopen(filename, "a");
+			} else {
+				file = fopen(filename, "w");
+			}
+
+			if (file == NULL) {
+				fprintf(stderr, "Error: could not open %s for writing\n", filename);
+				free(args);
+				free(new_args);
+				return;
+			}
+
+			execute_command(state, new_args, in, out, file);
+
+			fclose(file);
+			free(args);
+			free(new_args);
+			return;
+		}
+
+		if (strcmp(arg, "|") == 0) {
+			const char** left_args = malloc((i + 1) * sizeof(char*));
+			int j;
+			for (j = 0; j < i; j++) {
+				left_args[j] = args[j];
+			}
+			left_args[j] = NULL;
+
+			int k; for(k = 0; args[k] != NULL; k++);
+
+			const char** right_args = malloc((k - i) * sizeof(char*));
+			for (int j = i + 1, k = 0; args[j] != NULL; j++) {
+				right_args[k++] = args[j];
+			}
+			right_args[k] = NULL;
+
+			int pipefd[2];
+			if (pipe(pipefd) == -1) {
+				perror("pipe failed");
+				exit(-1);
+			}
+
+			pid_t left_pid = fork();
+			if (left_pid == 0) {
+				// Left child: write to pipe
+				dup2(pipefd[1], STDOUT_FILENO);
+				close(pipefd[0]);
+				close(pipefd[1]);
+				execute_command(state, left_args, in, stdout, err);
+				exit(0);
+			}
+
+			pid_t right_pid = fork();
+			if (right_pid == 0) {
+				// Right child: read from pipe
+				dup2(pipefd[0], STDIN_FILENO);
+				close(pipefd[0]);
+				close(pipefd[1]);
+				parse_and_execute_command(state, right_args, stdin, out, err);
+				exit(0);
+			}
+
+			// Parent closes both ends
+			close(pipefd[0]);
+			close(pipefd[1]);
+			waitpid(left_pid, NULL, 0);
+			waitpid(right_pid, NULL, 0);
+
+			free(args);
+			free(left_args);
+			free(right_args);
+			return;
+		}
+	}
+
+	execute_command(state, args, in, out, err);
+}
+
+void execute_command(struct State *state, const char** args, FILE* in, FILE* out, FILE* err) {
+	const char* cmd = args[0];
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strcmp(cmd, commands[i]->name) == 0) {
@@ -380,7 +373,7 @@ void execute_command(struct State *state, char** args, FILE* in, FILE* out, FILE
 			}
 
 			// Execute the command
-			execv(exe, args);
+			execv(exe, (char**) args);
 
 			// If execv returns, there was an error
 			exit(-1);

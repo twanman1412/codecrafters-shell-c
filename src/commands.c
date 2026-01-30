@@ -8,7 +8,7 @@
 
 const struct Command* commands[];
 
-void __exit(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
+void __exit(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
 	state->exit = true;
 }
 
@@ -17,7 +17,7 @@ struct Command exit_cmd = {
 	.func = &__exit
 };
 
-void _echo(struct State *_, char **args, FILE* in, FILE* out, FILE* err) {
+void _echo(struct State *_, const char **args, FILE* in, FILE* out, FILE* err) {
 	int length = 0;
 	for (int i = 1; args[i] != NULL; i++) {
 		length += strlen(args[i]) + 1; // +1 for space or newline
@@ -44,8 +44,8 @@ struct Command echo_cmd = {
 	.func = &_echo
 };
 
-void type(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
-	char* cmd = args[1]; // first argument is the command name
+void type(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
+	const char* cmd = args[1]; // first argument is the command name
 
 	for (int i = 0; commands[i] != NULL; i++) {
 		if (strcmp(cmd, commands[i]->name) == 0) {
@@ -68,7 +68,7 @@ struct Command type_cmd = {
 	.func = &type
 };
 
-void _pwd(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
+void _pwd(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
 	fprintf(out, "%s\n", state->cwd);
 }
 
@@ -77,7 +77,7 @@ struct Command pwd_cmd = {
 	.func = &_pwd
 };
 
-void _cd(struct State *state, char **args, FILE* in, FILE* out, FILE* err) {
+void _cd(struct State *state, const char **args, FILE* in, FILE* out, FILE* err) {
 	const char* path = args[1];
 
 	if (path == NULL || strcmp(path, "~") == 0) {
