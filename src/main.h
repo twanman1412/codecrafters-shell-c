@@ -7,6 +7,7 @@ struct State {
 	char** paths;
 	char** history;
 	int history_index;
+	int last_hist_index;
 	bool exit;
 };
 
